@@ -2,6 +2,7 @@ import { ApolloClient, ApolloProvider, InMemoryCache } from "@apollo/client";
 import React from "react";
 import { ThemeSwitcherProvider } from "react-css-theme-switcher";
 import { BrowserRouter } from "react-router-dom";
+import { MoralisProvider } from "react-moralis";
 import ReactDOM from "react-dom";
 import App from "./App";
 import "./index.css";
@@ -21,12 +22,17 @@ const client = new ApolloClient({
 });
 
 ReactDOM.render(
-  <ApolloProvider client={client}>
-    <ThemeSwitcherProvider themeMap={themes} defaultTheme={prevTheme || "light"}>
-      <BrowserRouter>
-        <App subgraphUri={subgraphUri} />
-      </BrowserRouter>
-    </ThemeSwitcherProvider>
-  </ApolloProvider>,
+  <MoralisProvider
+    appId={process.env.REACT_APP_MORALIS_APPLICATION_ID}
+    serverUrl={process.env.REACT_APP_MORALIS_SERVER_URL}
+  >
+    <ApolloProvider client={client}>
+      <ThemeSwitcherProvider themeMap={themes} defaultTheme={prevTheme || "light"}>
+        <BrowserRouter>
+          <App subgraphUri={subgraphUri} />
+        </BrowserRouter>
+      </ThemeSwitcherProvider>
+    </ApolloProvider>
+  </MoralisProvider>,
   document.getElementById("root"),
 );
