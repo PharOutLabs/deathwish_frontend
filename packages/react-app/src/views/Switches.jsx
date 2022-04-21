@@ -1,15 +1,4 @@
-import {
-  Button,
-  Card,
-  DatePicker,
-  Divider,
-  Image,
-  Layout,
-  message,
-  Modal,
-  notification,
-  Row,
-} from "antd";
+import { Button, Card, DatePicker, Divider, Image, Input, Layout, message, Modal, notification, Row } from "antd";
 import { useContractReader } from "eth-hooks";
 import React, { useEffect, useReducer, useState } from "react";
 import { FaTwitter, FaMediumM } from "react-icons/fa";
@@ -37,15 +26,7 @@ function reducer(state, item) {
     switches: [item, ...state.switches],
   };
 }
-function Switches({
-  readContracts,
-  mainnetProvider,
-  address,
-  tx,
-  userSigner,
-  writeContracts,
-  gun,
-}) {
+function Switches({ readContracts, mainnetProvider, address, tx, userSigner, writeContracts, gun }) {
   const [state, dispatch] = useReducer(reducer, initialSwitchState);
   const [beneState, beneDispatch] = useReducer(reducer, initialSwitchState);
   const [gotSwitches, setGotSwitch] = useState(false);
@@ -55,7 +36,6 @@ function Switches({
   const [chosenDate, setChosenDate] = useState();
   const theSwitches = useContractReader(readContracts, "DeathWish", "getOwnedSwitches", [address]);
   const benefactorSwitches = useContractReader(readContracts, "DeathWish", "getBenefactorSwitches", [address]);
-  const [id, setID] = useState();
   const [proERC721, setProERC721] = useState(false);
   const [proERC1155, setProERC1155] = useState(false);
   const [proERC20, setProERC20] = useState(false);
@@ -67,6 +47,7 @@ function Switches({
   const [editSwitchId, setEditSwitchId] = useState();
   const [handledSwitch, setHandledSwitch] = useState(false);
   const [handledBene, setHandledBene] = useState(false);
+  const [newAmount, setNewAmount] = useState();
 
   useEffect(() => {
     if (endDate) {
@@ -76,7 +57,7 @@ function Switches({
       let a = n - z;
       setHowManyDays(Math.ceil(a / 86400));
       setEndTime(n);
-      console.log(n)
+      console.log(n);
     }
   }, [endDate]);
 
@@ -118,9 +99,13 @@ function Switches({
         };
         let result = await grabSwitch(theId);
         console.log("Unlock, User, TokenAddress, TokenType, TokenID, Amount");
-        result.forEach((it,i)=>{
-          try{console.log(it.toNumber())}catch{console.log(it)}
-        })
+        result.forEach((it, i) => {
+          try {
+            console.log(it.toNumber());
+          } catch {
+            console.log(it);
+          }
+        });
         let benefactorAddresses = await grabBenefactors(theId);
         let unlock = await result[0].toNumber();
         let switchType = await result[3].toNumber();
@@ -409,7 +394,7 @@ function Switches({
 
   // function updateUnlockTime(uint256 id, uint64 newUnlock)
   async function updateTime(id) {
-    console.log("Switch ID: ",id, " Timestamp: ", endTime);
+    console.log("Switch ID: ", id, " Timestamp: ", endTime);
     const result = tx(writeContracts.DeathWish.updateUnlockTime(id, endTime), update => {
       message.info("📡 Transaction Update:", update);
       if (update && (update.status === "confirmed" || update.status === 1)) {
@@ -437,7 +422,7 @@ function Switches({
 
   // function updateBenefactors(uint256 id, address[] memory _benefactors)
   async function updateBenefactors(id, benefacts) {
-    console.log("Switch ID: ",id, " Benefactors: ", benefactors);
+    console.log("Switch ID: ", id, " Benefactors: ", benefactors);
     const result = tx(writeContracts.DeathWish.updateBenefactors(id, benefacts), update => {
       message.info("📡 Transaction Update:", update);
       if (update && (update.status === "confirmed" || update.status === 1)) {
@@ -465,8 +450,37 @@ function Switches({
 
   // function claimSwitch(uint256 id)
   async function claimSwitch(id) {
-    console.log("Switch ID: ",id);
+    console.log("Switch ID: ", id);
     const result = tx(writeContracts.DeathWish.claimSwitch(id), update => {
+      message.info("📡 Transaction Update:", update);
+      if (update && (update.status === "confirmed" || update.status === 1)) {
+        message.info(" 🍾 Transaction " + update.hash + " finished!");
+        message.info(
+          " ⛽️ " +
+            update.gasUsed +
+            "/" +
+            (update.gasLimit || update.gas) +
+            " @ " +
+            parseFloat(update.gasPrice) / 1000000000 +
+            " gwei",
+        );
+        notification.open({
+          message: "Successfully claimed!",
+        });
+
+        setTimeout(function () {
+          window.location.reload();
+        }, 4000);
+      }
+    });
+    console.log("awaiting metamask/web3 confirm result...", result);
+    console.log(await result);
+  }
+
+  //function updateTokenAmount(uint256 id, uint256 newAmount) external
+  async function updateTokenAmount(id) {
+    console.log("Switch ID: ", id);
+    const result = tx(writeContracts.DeathWish.updateTokenAmount(editSwitchId, newAmount), update => {
       message.info("📡 Transaction Update:", update);
       if (update && (update.status === "confirmed" || update.status === 1)) {
         message.info(" 🍾 Transaction " + update.hash + " finished!");
@@ -700,16 +714,18 @@ function Switches({
             <Meta title={data.name ? `Name: ${data.name}` : null} description={`Token Address: ${data.address}`} />
             <h5> Token ID: {data.id}</h5>
             <div style={{ margin: 20 }}>
-          <h4>The unlock date is {data.unlock}.</h4>
-          <h5>The unix timestamp is {data.unix}</h5>
-          <div style={{ margin: 20 }}>
-            {data.claim <= startDateTime ? (
-              <Button key={"claim_button" + index} onClick={() => claimSwitch(data.switchId)}>
-                Claim switch!
-              </Button>
-            ) : (<div>It is not your time to claim!</div>)}
-          </div>
-          </div>
+              <h4>The unlock date is {data.unlock}.</h4>
+              <h5>The unix timestamp is {data.unix}</h5>
+              <div style={{ margin: 20 }}>
+                {data.claim <= startDateTime ? (
+                  <Button key={"claim_button" + index} onClick={() => claimSwitch(data.switchId)}>
+                    Claim switch!
+                  </Button>
+                ) : (
+                  <div>It is not your time to claim!</div>
+                )}
+              </div>
+            </div>
           </Card>
         </div>
       );
@@ -742,16 +758,18 @@ function Switches({
             />
             <h5> Token ID: {data.id}</h5>
             <div style={{ margin: 20 }}>
-          <h4>The unlock date is {data.unlock}.</h4>
-          <h5>The unix timestamp is {data.unix}</h5>
-          <div style={{ margin: 20 }}>
-            {data.claim <= startDateTime ? (
-              <Button key={"claim_button" + index} onClick={() => claimSwitch(data.switchId)}>
-                Claim switch!
-              </Button>
-            ) : (<div>It is not your time to claim!</div>)}
-          </div>
-          </div>
+              <h4>The unlock date is {data.unlock}.</h4>
+              <h5>The unix timestamp is {data.unix}</h5>
+              <div style={{ margin: 20 }}>
+                {data.claim <= startDateTime ? (
+                  <Button key={"claim_button" + index} onClick={() => claimSwitch(data.switchId)}>
+                    Claim switch!
+                  </Button>
+                ) : (
+                  <div>It is not your time to claim!</div>
+                )}
+              </div>
+            </div>
           </Card>
         </div>
       );
@@ -782,18 +800,19 @@ function Switches({
               title={data.metadata?.name ? `Name: ${data.metadata.name}` : null}
               description={`Symbol: ${data.metadata.symbol} Token Address: ${data.address}`}
             />
-          <div style={{ margin: 20 }}>
-          <h4>The unlock date is {data.unlock}.</h4>
-          <h5>The unix timestamp is {data.unix}</h5>
-          <div style={{ margin: 20 }}>
-            {data.claim <= startDateTime ? (
-              <Button key={"claim_button" + index} onClick={() => claimSwitch(data.switchId)}>
-                Claim switch!
-              </Button>
-            ) : (<div>It is not your time to claim!</div>)}
-          </div>
-          </div>
-          
+            <div style={{ margin: 20 }}>
+              <h4>The unlock date is {data.unlock}.</h4>
+              <h5>The unix timestamp is {data.unix}</h5>
+              <div style={{ margin: 20 }}>
+                {data.claim <= startDateTime ? (
+                  <Button key={"claim_button" + index} onClick={() => claimSwitch(data.switchId)}>
+                    Claim switch!
+                  </Button>
+                ) : (
+                  <div>It is not your time to claim!</div>
+                )}
+              </div>
+            </div>
           </Card>
         </div>
       );
@@ -920,7 +939,7 @@ function Switches({
         </Card>
       </div>
 
-      {gotSwitches && state.switches.length === 0 && (
+      {state.switches.length === 0 && (
         <div style={{ marginTop: 150 }}>
           <div style={{ marginTop: 30, justifyContent: "center", alignItems: "center", display: "flex" }}>
             <Card>
@@ -1014,6 +1033,22 @@ function Switches({
             </Button>
           </div>
         </div>
+        <Divider />
+        <div style={{ marginTop: 30 }}>
+            <div style={{ margin: 20 }}>
+              <h3>Update token amount!</h3>
+            </div>
+            <Input
+              style={{ margin: 10, width: 150 }}
+              placeholder="Amount..."
+              allowClear={true}
+              onChange={e => {
+                setNewAmount(e.target.value);
+              }}
+            />
+            <Button style={{ margin: 20 }} onClick={()=>{updateTokenAmount()}}>Update Amount!</Button>
+          </div>
+        <Divider />
         <div style={{ marginTop: 30 }}>
           <div style={{ margin: 20 }}>
             <h3>Set a new unlock time!</h3>
@@ -1052,7 +1087,6 @@ function Switches({
           setProERC1155(false);
         }}
         onOk={() => {
-          // createSwitch();
           setProERC1155(false);
         }}
       >
@@ -1104,6 +1138,22 @@ function Switches({
             </Button>
           </div>
         </div>
+        <Divider />
+        <div style={{ marginTop: 30 }}>
+            <div style={{ margin: 20 }}>
+              <h3>Update token amount!</h3>
+            </div>
+            <Input
+              style={{ margin: 10, width: 150 }}
+              placeholder="Amount..."
+              allowClear={true}
+              onChange={e => {
+                setNewAmount(e.target.value);
+              }}
+            />
+            <Button style={{ margin: 20 }} onClick={()=>{updateTokenAmount()}}>Update Amount!</Button>
+          </div>
+          <Divider />
         <div style={{ marginTop: 30 }}>
           <div style={{ margin: 20 }}>
             <h3>Set a new unlock time!</h3>
@@ -1146,14 +1196,14 @@ function Switches({
           setProERC721(false);
         }}
       >
-        <div style={{ marginTop: 100 }}>
+        <div style={{ marginTop: 50 }}>
           <h2>Choose benefactors</h2>
           <h5 style={{ margin: 10 }}>
             The first benefactor entered will be the first to claim, <br /> followed by the proceeding benefactors
             chosen.
           </h5>
           <h4>This will reset the current benefactors!</h4>
-          <div style={{ alignContent: "center", justifyContent: "center", display: "flex" }}>
+          <div>
             <AddressInput
               ensProvider={mainnetProvider}
               style={{ width: 300 }}
@@ -1194,6 +1244,7 @@ function Switches({
             </Button>
           </div>
         </div>
+        <Divider />
         <div style={{ marginTop: 30 }}>
           <div style={{ margin: 20 }}>
             <h3>Set a new unlock time!</h3>
